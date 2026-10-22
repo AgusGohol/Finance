@@ -1,6 +1,6 @@
 {
-  "name": "Kas Pribadi",
-  "short_name": "Kas Pribadi",
+  "name": "Finance",
+  "short_name": "Finance",
   "description": "Catat pemasukan dan pengeluaran, pantau anggaran bulanan.",
   "lang": "id",
   "start_url": "./",

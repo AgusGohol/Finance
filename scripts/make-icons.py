@@ -35,7 +35,7 @@ for dens,s in {"mdpi":48,"hdpi":72,"xhdpi":96,"xxhdpi":144,"xxxhdpi":192}.items(
 def splash(w,h,scale=2):
     W,H=w*scale,h*scale; im=Image.new("RGBA",(W,H),TEAL); d=ImageDraw.Draw(im)
     m=min(W,H); glyph(d,W/2,H/2-m*0.04,m*0.16)
-    f=ImageFont.truetype(FONT,int(m*0.055)); d.text((W/2,H/2+m*0.12),"Kas Pribadi",font=f,fill=(255,255,255,210),anchor="mm")
+    f=ImageFont.truetype(FONT,int(m*0.055)); d.text((W/2,H/2+m*0.12),"Finance",font=f,fill=(255,255,255,210),anchor="mm")
     return im.resize((w,h),Image.LANCZOS).convert("RGB")
 sizes={"drawable":(480,320),"drawable-land-mdpi":(480,320),"drawable-land-hdpi":(800,480),"drawable-land-xhdpi":(1280,720),
  "drawable-land-xxhdpi":(1600,960),"drawable-land-xxxhdpi":(1920,1280),"drawable-port-mdpi":(320,480),"drawable-port-hdpi":(480,800),

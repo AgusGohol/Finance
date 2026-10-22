@@ -1,6 +1,6 @@
 {
   "appId": "id.kaspribadi.app",
-  "appName": "Kas Pribadi",
+  "appName": "Finance",
   "webDir": "dist",
   "android": {
     "backgroundColor": "#0B6B5E"

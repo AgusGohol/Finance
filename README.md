@@ -1,4 +1,4 @@
-# Kas Pribadi
+# Finance
 
 Aplikasi keuangan pribadi: catat pemasukan dan pengeluaran, pantau anggaran bulanan per kategori, dan lihat grafik pengeluaran harian.
 
@@ -17,7 +17,7 @@ Aplikasi keuangan pribadi: catat pemasukan dan pengeluaran, pantau anggaran bula
    - Lokasi: **asia-southeast2 (Jakarta)**
    - Mode: **Start in production mode** → **Create**.
 5. **Pasang aturan keamanan:** masih di Firestore, buka tab **Rules**, hapus isinya, tempel isi file [`firestore.rules`](firestore.rules), lalu **Publish**. Aturan ini membuat setiap akun hanya bisa membaca datanya sendiri.
-6. **Ambil pengaturan aplikasi:** klik ikon roda gigi → **Project settings** → bagian **Your apps** → klik ikon web **`</>`** → nama aplikasi `Kas Pribadi` → **jangan** centang Firebase Hosting → **Register app**. Akan muncul kode berisi `firebaseConfig = { apiKey: "...", ... }`.
+6. **Ambil pengaturan aplikasi:** klik ikon roda gigi → **Project settings** → bagian **Your apps** → klik ikon web **`</>`** → nama aplikasi `Finance` → **jangan** centang Firebase Hosting → **Register app**. Akan muncul kode berisi `firebaseConfig = { apiKey: "...", ... }`.
 7. Salin nilai-nilai itu ke file [`firebase-config.json`](firebase-config.json) (di GitHub: buka file → ikon pensil → isi → **Commit changes**).
 
 > Pengaturan ini memang aman berada di repositori publik. Yang menjaga datamu adalah login dan aturan Firestore di langkah 5, bukan kerahasiaan `apiKey`.
@@ -36,7 +36,7 @@ Aplikasi keuangan pribadi: catat pemasukan dan pengeluaran, pantau anggaran bula
 
 Hasilnya:
 - Versi web: `https://<username-github>.github.io/kas-pribadi/`
-- APK: tab **Releases** di repositori (mis. `KasPribadi-1.0.1.apk`).
+- APK: tab **Releases** di repositori (mis. `Finance-1.0.1.apk`).
 
 ## 3. Pasang di perangkat
 

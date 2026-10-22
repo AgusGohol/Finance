@@ -75,13 +75,13 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon --stacktrace
-      - run: cp android/app/build/outputs/apk/release/app-release.apk "KasPribadi-1.0.${{ github.run_number }}.apk"
+      - run: cp android/app/build/outputs/apk/release/app-release.apk "Finance-1.0.${{ github.run_number }}.apk"
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
-          name: Kas Pribadi 1.0.${{ github.run_number }}
+          name: Finance 1.0.${{ github.run_number }}
           make_latest: true
-          files: KasPribadi-1.0.${{ github.run_number }}.apk
+          files: Finance-1.0.${{ github.run_number }}.apk
           body: |
-            Unduh file **KasPribadi-1.0.${{ github.run_number }}.apk** di bawah ini lalu buka di HP Android.
+            Unduh file **Finance-1.0.${{ github.run_number }}.apk** di bawah ini lalu buka di HP Android.
             Kalau aplikasi versi lama sudah terpasang, pasang saja di atasnya. Datamu tetap aman.
