@@ -1,0 +1,22 @@
+{
+  "name": "kas-pribadi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aplikasi keuangan pribadi: catat pemasukan dan pengeluaran, anggaran bulanan, sinkron lewat Firebase.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "android:prepare": "node scripts/prepare-android.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "firebase": ">=11.0.0 <13.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
+    "@fontsource/ibm-plex-mono": "^5.0.0",
+    "@fontsource/plus-jakarta-sans": "^5.0.0",
+    "esbuild": "^0.25.0"
+  }
+}

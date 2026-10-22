@@ -1,0 +1,13 @@
+{
+  "appId": "id.kaspribadi.app",
+  "appName": "Kas Pribadi",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#0B6B5E"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css"
+    }
+  }
+}
