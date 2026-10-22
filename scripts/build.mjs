@@ -46,9 +46,13 @@ cpSync("src/styles.css", join(out, "styles.css"));
 cpSync("src/manifest.webmanifest", join(out, "manifest.webmanifest"));
 cpSync("src/icons", join(out, "icons"), { recursive: true });
 writeFileSync(join(out, "index.html"), readFileSync("src/index.html", "utf8").replaceAll("%BUILD%", BUILD));
+const [owner, name] = REPO.split("/");
+const APP_URL = owner && name ? `https://${owner.toLowerCase()}.github.io/${name}/` : "";
+writeFileSync(join(out, "offline.html"), readFileSync("src/offline.html", "utf8").replaceAll("%APP_URL%", APP_URL));
 
 // 4. Service worker untuk versi web (offline & bisa dipasang ke layar utama).
-const assets = ["./", "index.html", "app.js", "styles.css", "fonts.css", "manifest.webmanifest",
+// Nama file berversi (?v=) harus sama persis dengan yang diminta index.html, supaya versi lama tidak tercampur.
+const assets = ["./", "index.html", `app.js?v=${BUILD}`, `styles.css?v=${BUILD}`, `fonts.css?v=${BUILD}`, "manifest.webmanifest",
   ...readdirSync(join(out, "fonts")).map((f) => "fonts/" + f),
   ...readdirSync(join(out, "icons")).map((f) => "icons/" + f)];
 writeFileSync(join(out, "sw.js"), readFileSync("src/sw.js", "utf8")

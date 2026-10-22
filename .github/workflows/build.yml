@@ -64,6 +64,8 @@ jobs:
       - run: npm run build
         env:
           APP_BUILD: ${{ github.run_number }}
+      - name: Arahkan APK ke versi web terbaru
+        run: node scripts/live-config.mjs
       - run: npx cap add android
       - run: npm run android:prepare
       - name: Bangun APK

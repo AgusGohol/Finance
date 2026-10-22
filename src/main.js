@@ -11,6 +11,7 @@ startApp({
   env: { native, build: Number(__BUILD__) || 0, repo: __REPO__ },
 });
 
-if (!native && "serviceWorker" in navigator && location.protocol === "https:") {
+// Di APK yang memuat file bawaan (https://localhost) service worker tidak diperlukan.
+if ("serviceWorker" in navigator && location.protocol === "https:" && location.hostname !== "localhost") {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }

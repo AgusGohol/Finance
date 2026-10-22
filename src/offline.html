@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Finance</title>
+<style>
+:root{--bg:#EBEFEE;--surface:#FFFFFF;--ink:#14211F;--muted:#5A6A67;--line:#D4DCDA;--accent:#0B6B5E;--accent-ink:#FFFFFF;color-scheme:light}
+@media (prefers-color-scheme: dark){:root{--bg:#0E1514;--surface:#16201F;--ink:#E4EDEB;--muted:#94A6A2;--line:#283532;--accent:#55C2AE;--accent-ink:#06201B;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;min-height:100dvh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",Roboto,system-ui,-apple-system,sans-serif;
+  padding:calc(24px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))}
+.card{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:12px}
+.logo{width:56px;height:56px;border-radius:16px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:800;font-size:22px}
+h1{font-size:22px;margin:4px 0 0}
+p{margin:0;color:var(--muted)}
+button{margin-top:6px;border:0;border-radius:10px;padding:12px;font:inherit;font-weight:700;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="logo" aria-hidden="true">Rp</div>
+  <h1>Tidak ada koneksi internet</h1>
+  <p>Finance perlu internet saat dibuka untuk memuat versi terbaru. Datamu aman di akunmu. Nyalakan data seluler atau Wi-Fi, lalu coba lagi.</p>
+  <button id="retry" type="button">Coba lagi</button>
+</main>
+<script>
+  var APP_URL = "%APP_URL%";
+  function go(){ if (APP_URL.indexOf("http") === 0) location.replace(APP_URL); else location.reload(); }
+  document.getElementById("retry").onclick = go;
+  window.addEventListener("online", go);
+</script>
+</body>
+</html>

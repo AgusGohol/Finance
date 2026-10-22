@@ -62,8 +62,9 @@ Pertama kali, pilih **Buat akun** lalu daftar dengan email dan password. Di pera
 ## 4. Pembaruan
 
 - Setiap perubahan di cabang `main` otomatis membangun versi web dan APK baru.
-- Versi web dan iPhone langsung memakai versi terbaru (muat ulang halaman).
-- Aplikasi Android menampilkan pemberitahuan **Versi baru tersedia** beserta tombol unduh. Pasang APK baru di atas yang lama; data tetap aman karena tersimpan di akunmu.
+- **Semua perangkat selalu memakai versi terbaru tanpa memasang ulang:** APK Android membuka versi web di GitHub Pages setiap kali dijalankan, begitu juga iPhone dan komputer.
+- Akibatnya aplikasi butuh internet saat dibuka. Bila tidak ada koneksi, APK menampilkan layar "Tidak ada koneksi internet" dengan tombol **Coba lagi**.
+- APK hanya perlu dipasang ulang bila bagian Android-nya sendiri berubah (jarang). Pasang di atas yang lama; data tetap aman di akunmu.
 
 ## 5. Tutup pendaftaran (disarankan)
 
