@@ -1,5 +1,13 @@
 // Lapisan data: login (Firebase Authentication) dan penyimpanan (Cloud Firestore).
-// Data tiap akun ada di users/{uid}/... dan dilindungi aturan di firestore.rules.
+// Semua data akun ada di users/{uid}/<koleksi>/... dan dilindungi aturan di firestore.rules.
+//
+// Koleksi:
+//   tx        transaksi (masuk, keluar, transfer, setor, tarik)
+//   akun      rekening bank, e-wallet, tunai
+//   tabungan  pos tabungan dengan target
+//   rencana   rencana jangka panjang (terhubung ke satu pos tabungan)
+//   bisnis    usaha milik sendiri
+//   settings  dokumen "anggaran"
 import { initializeApp } from "firebase/app";
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, inMemoryPersistence,
@@ -8,7 +16,7 @@ import {
 } from "firebase/auth";
 import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache,
-  collection, doc, query, where, onSnapshot, setDoc, deleteDoc,
+  collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, writeBatch,
 } from "firebase/firestore";
 
 export function createFirebaseData(config) {
@@ -20,12 +28,11 @@ export function createFirebaseData(config) {
   try {
     db = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
   } catch (e) {
-    // Mis. mode penyamaran: simpan di memori saja.
     db = initializeFirestore(app, { localCache: memoryLocalCache() });
   }
 
   let uid = null;
-  const txCol = () => collection(db, "users", uid, "tx");
+  const col = (name) => collection(db, "users", uid, name);
 
   return {
     onAuth(cb) {
@@ -36,23 +43,27 @@ export function createFirebaseData(config) {
     resetPassword: (email) => sendPasswordResetEmail(auth, email),
     signOut: () => signOut(auth),
 
-    subscribeMonth(month, next, fail) {
-      const q = query(txCol(), where("bulan", "==", month));
-      return onSnapshot(q, { includeMetadataChanges: true }, (snap) => {
-        next(snap.docs.map((d) => ({ id: d.id, ...d.data() })), {
-          pending: snap.metadata.hasPendingWrites, fromCache: snap.metadata.fromCache,
-        });
+    /** Pantau seluruh isi satu koleksi. */
+    watch(name, next, fail) {
+      return onSnapshot(col(name), { includeMetadataChanges: true }, (snap) => {
+        next(snap.docs.map((d) => ({ id: d.id, ...d.data() })), { pending: snap.metadata.hasPendingWrites });
       }, fail);
     },
-    subscribeBudget(next, fail) {
-      return onSnapshot(doc(db, "users", uid, "settings", "anggaran"), (s) => next(s.exists() ? s.data() : {}), fail);
+    watchDoc(name, id, next, fail) {
+      return onSnapshot(doc(col(name), id), (s) => next(s.exists() ? s.data() : {}), fail);
     },
-    // Perubahan langsung tersimpan di perangkat; janji (promise) selesai saat sudah sampai di server.
-    saveTx(id, data) {
-      const ref = id ? doc(txCol(), id) : doc(txCol());
-      return setDoc(ref, data);
+    newId: (name) => doc(col(name)).id,
+    // Perubahan langsung tersimpan di perangkat; janji (promise) selesai saat sampai di server.
+    save: (name, id, data) => setDoc(doc(col(name), id), data),
+    patch: (name, id, data) => updateDoc(doc(col(name), id), data),
+    remove: (name, id) => deleteDoc(doc(col(name), id)),
+    /** Perbarui banyak dokumen sekaligus (dipecah per 400). */
+    async patchMany(name, items) {
+      for (let i = 0; i < items.length; i += 400) {
+        const b = writeBatch(db);
+        for (const it of items.slice(i, i + 400)) b.update(doc(col(name), it.id), it.data);
+        await b.commit();
+      }
     },
-    delTx: (id) => deleteDoc(doc(txCol(), id)),
-    saveBudget: (b) => setDoc(doc(db, "users", uid, "settings", "anggaran"), b),
   };
 }

@@ -1,10 +1,15 @@
 # Finance
 
-Aplikasi keuangan pribadi: catat pemasukan dan pengeluaran, pantau anggaran bulanan per kategori, dan lihat grafik pengeluaran harian.
+Aplikasi keuangan pribadi yang semua bagiannya saling terhubung:
 
-- **Android:** file APK, dibangun otomatis oleh GitHub Actions.
-- **Komputer & iPhone:** versi web di GitHub Pages, bisa dipasang ke layar utama.
-- **Login email + password** (Firebase). Data sama di semua perangkat dan tetap bisa dicatat saat offline; terkirim otomatis begitu online lagi.
+- **Rekening** – bank, e-wallet, dan tunai beserta saldonya. Setiap pemasukan, pengeluaran, transfer, dan setoran otomatis menambah atau mengurangi saldo rekening yang dipilih.
+- **Transaksi** – pemasukan, pengeluaran, transfer antar rekening (dengan biaya admin), serta setor/tarik tabungan. Bisa difilter per rekening, pribadi atau bisnis.
+- **Tabungan** – pos tabungan dengan target dan progres. Setor dari rekening mana saja: saldo rekening berkurang, tabungan bertambah.
+- **Rencana jangka panjang** – target dana dengan tenggat (mis. DP rumah 2030). Terhubung ke satu pos tabungan; aplikasi menghitung berapa yang perlu disisihkan per bulan dan apakah bulan ini sudah cukup.
+- **Bisnis** – pemasukan dan biaya usaha sendiri dicatat terpisah, lengkap dengan laba, margin, dan grafik 6 bulan.
+- **Anggaran pribadi** – batas belanja per kategori per bulan (pengeluaran bisnis tidak dihitung).
+
+Tersedia sebagai APK Android dan versi web (komputer & iPhone), dengan login email + password. Data sama di semua perangkat dan tetap bisa dicatat saat offline.
 
 ---
 
@@ -87,4 +92,17 @@ scripts/             skrip build
 .github/workflows/   GitHub Actions: versi web + APK
 ```
 
-Data tersimpan di Firestore pada `users/{id-akun}/tx` (transaksi) dan `users/{id-akun}/settings/anggaran`.
+Data tersimpan di Firestore pada `users/{id-akun}/`:
+
+| Koleksi | Isi |
+| --- | --- |
+| `tx` | transaksi: `tipe` masuk / keluar / transfer / setor / tarik, `akun`, `keAkun`, `tabungan`, `bisnis`, `kategori`, `jumlah`, `biaya`, `tanggal` |
+| `akun` | rekening: `nama`, `jenis`, `saldoAwal` per `saldoTgl` |
+| `tabungan` | pos tabungan: `nama`, `target`, `saldoAwal`, `lokasi` |
+| `rencana` | rencana: `nama`, `target`, `tenggat` (YYYY-MM), `tabungan` |
+| `bisnis` | usaha: `nama`, `deskripsi` |
+| `settings/anggaran` | batas per kategori |
+
+Saldo rekening = saldo awal + semua transaksi sejak tanggal saldo awal itu. Transaksi yang lebih lama tetap tampil di riwayat tanpa mengubah saldo.
+
+Untuk mencoba tampilan tanpa Firebase: `node test/make.mjs`, jalankan server statis di folder proyek, lalu buka `test/index.html`.

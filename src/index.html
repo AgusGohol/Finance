@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Finance</title>
-<meta name="description" content="Catat pemasukan dan pengeluaran, pantau anggaran bulanan.">
+<meta name="description" content="Kelola rekening, tabungan, rencana, dan bisnis dalam satu aplikasi.">
 <meta name="theme-color" content="#0B6B5E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -58,115 +58,52 @@
 </main>
 
 <!-- Aplikasi -->
-<div class="wrap" id="appView" hidden>
-  <header class="top">
-    <div class="brand"><span class="logo sm" aria-hidden="true">Rp</span><h1>Finance</h1><span class="sync" id="sync" data-s="ok">Tersinkron</span></div>
-    <div class="month" role="group" aria-label="Pilih bulan">
-      <button id="prevM" aria-label="Bulan sebelumnya">‹</button>
-      <strong id="monthLabel"></strong>
-      <button id="nextM" aria-label="Bulan berikutnya">›</button>
+<div class="shell" id="appView" hidden>
+  <aside class="side" aria-label="Navigasi utama">
+    <div class="side-brand"><span class="logo sm" aria-hidden="true">Rp</span><span>Finance</span></div>
+    <button class="btn primary block side-add" data-act="add-tx"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Catat transaksi</button>
+    <nav class="side-nav" id="sideNav"></nav>
+    <div class="side-foot">
+      <span class="sync" id="sync" data-s="ok">Tersinkron</span>
+      <button class="btn ghost small" data-act="account">Akun</button>
     </div>
-    <div class="top-actions">
-      <button class="btn ghost" id="todayBtn" hidden>Bulan ini</button>
-      <button class="btn" id="csvBtn" hidden>Unduh CSV</button>
-      <div class="acct">
-        <button class="btn" id="acctBtn" aria-expanded="false" aria-controls="acctMenu">Akun</button>
-        <div class="menu" id="acctMenu" hidden>
-          <p class="muted small" id="acctEmail"></p>
-          <p class="muted small" id="acctVer"></p>
-          <button class="btn block" id="logoutBtn">Keluar dari akun</button>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="tb-row">
+        <div class="tb-brand"><span class="logo sm" aria-hidden="true">Rp</span><h1 id="pageTitle">Beranda</h1></div>
+        <div class="tb-actions">
+          <span class="sync tb-sync" id="sync2" data-s="ok">Tersinkron</span>
+          <button class="icon-btn round" data-act="account" aria-label="Akun"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
         </div>
       </div>
-    </div>
-  </header>
+      <div class="month" id="monthNav" role="group" aria-label="Pilih bulan">
+        <button data-act="month-prev" aria-label="Bulan sebelumnya">‹</button>
+        <strong id="monthLabel"></strong>
+        <button data-act="month-next" aria-label="Bulan berikutnya">›</button>
+        <button class="month-today" data-act="month-today" id="monthToday">Bulan ini</button>
+      </div>
+    </header>
 
-  <div class="banner" id="updBanner" hidden>
-    <p id="updText">Versi baru tersedia.</p>
-    <a class="btn primary" id="updLink" href="#">Unduh versi baru</a>
+    <div class="banner" id="updBanner" hidden>
+      <p id="updText">Versi baru tersedia.</p>
+      <a class="btn primary" id="updLink" href="#">Unduh versi baru</a>
+    </div>
+
+    <main id="view" tabindex="-1"></main>
   </div>
 
-  <section class="summary" aria-label="Ringkasan bulan">
-    <div>
-      <span class="label">Saldo bulan ini</span>
-      <span class="big num" id="sNet">Rp 0</span>
-      <small id="sRate"></small>
-    </div>
-    <div>
-      <span class="label">Pemasukan</span>
-      <span class="mid num pos" id="sIn">Rp 0</span>
-      <small id="sInN">0 transaksi</small>
-    </div>
-    <div>
-      <span class="label">Pengeluaran</span>
-      <span class="mid num neg" id="sOut">Rp 0</span>
-      <small id="sOutN">0 transaksi</small>
-    </div>
-    <div>
-      <span class="label">Rata-rata / hari</span>
-      <span class="mid num" id="sAvg">Rp 0</span>
-      <small id="sAvgN">pengeluaran</small>
-    </div>
-  </section>
+  <nav class="tabbar" id="tabBar" aria-label="Navigasi utama"></nav>
+  <button class="fab" data-act="add-tx" aria-label="Catat transaksi"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+</div>
 
-  <div class="grid">
-    <div class="col">
-      <section class="card" id="cardChart">
-        <div class="card-h"><h2>Pengeluaran harian</h2><span class="label" id="chartNote"></span></div>
-        <svg class="chart" id="chart" viewBox="0 0 720 210" role="img" aria-label="Grafik pengeluaran per hari"></svg>
-        <div class="legend">
-          <span><i class="sw-acc"></i>Pengeluaran per hari</span>
-          <span><i class="sw-out"></i>Melewati jatah harian</span>
-          <span id="legLim"><i class="sw-warn"></i>Jatah harian dari anggaran</span>
-        </div>
-      </section>
-
-      <section class="card" id="cardList">
-        <div class="card-h">
-          <h2>Transaksi</h2>
-          <div class="filters">
-            <button class="chip" data-f="semua" aria-pressed="true">Semua</button>
-            <button class="chip" data-f="keluar" aria-pressed="false">Keluar</button>
-            <button class="chip" data-f="masuk" aria-pressed="false">Masuk</button>
-            <input class="search" id="q" type="search" placeholder="Cari catatan…" aria-label="Cari transaksi">
-          </div>
-        </div>
-        <div id="list"></div>
-      </section>
-    </div>
-
-    <div class="col">
-      <section class="card" id="cardForm">
-        <div class="card-h"><h2 id="formTitle">Tambah transaksi</h2></div>
-        <div class="seg" role="group" aria-label="Jenis transaksi" id="typeSeg">
-          <button type="button" data-t="keluar" aria-pressed="true">Pengeluaran</button>
-          <button type="button" data-t="masuk" aria-pressed="false">Pemasukan</button>
-        </div>
-        <form id="txForm" novalidate>
-          <div class="field">
-            <label for="fAmt">Jumlah</label>
-            <div class="money"><span>Rp</span><input id="fAmt" inputmode="numeric" autocomplete="off" placeholder="0"></div>
-            <div class="quick" id="quick">
-              <button type="button" data-v="10000">+10rb</button><button type="button" data-v="25000">+25rb</button><button type="button" data-v="50000">+50rb</button><button type="button" data-v="100000">+100rb</button>
-            </div>
-          </div>
-          <div class="pair">
-            <div class="field"><label for="fCat">Kategori</label><select id="fCat"></select></div>
-            <div class="field"><label for="fDate">Tanggal</label><input id="fDate" type="date"></div>
-          </div>
-          <div class="field"><label for="fNote">Catatan</label><input id="fNote" maxlength="120" placeholder="mis. Nasi goreng, token listrik"></div>
-          <p class="err" id="fErr" hidden></p>
-          <div class="form-actions">
-            <button class="btn primary" id="fSubmit" type="submit">Simpan transaksi</button>
-            <button class="btn" id="fCancel" type="button" hidden>Batal</button>
-          </div>
-        </form>
-      </section>
-
-      <section class="card" id="cardBudget">
-        <div class="card-h"><h2>Anggaran bulanan</h2><button class="btn ghost" id="bEditBtn">Ubah</button></div>
-        <div id="budget"></div>
-      </section>
-    </div>
+<!-- Lembar formulir -->
+<div class="sheet-wrap" id="sheet" hidden>
+  <div class="scrim" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-h"><h2 id="sheetTitle"></h2><button class="icon-btn" data-close aria-label="Tutup">✕</button></div>
+    <div class="sheet-b" id="sheetBody"></div>
   </div>
 </div>
 
