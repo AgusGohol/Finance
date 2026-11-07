@@ -8,6 +8,7 @@ Aplikasi keuangan pribadi yang semua bagiannya saling terhubung:
 - **Rencana jangka panjang** – target dana dengan tenggat (mis. DP rumah 2030). Terhubung ke satu pos tabungan; aplikasi menghitung berapa yang perlu disisihkan per bulan dan apakah bulan ini sudah cukup.
 - **Bisnis** – pemasukan dan biaya usaha sendiri dicatat terpisah, lengkap dengan laba, margin, dan grafik 6 bulan.
 - **Anggaran pribadi** – batas belanja per kategori per bulan (pengeluaran bisnis tidak dihitung).
+- **Baca dari screenshot** – pilih screenshot mutasi rekening, riwayat e-wallet, struk, atau bukti transfer; Gemini membaca daftar transaksinya, kamu periksa dan koreksi, lalu semuanya tersimpan sekaligus ke rekening yang dipilih. Kemungkinan duplikat ditandai dan tidak dicentang.
 
 Tersedia sebagai APK Android dan versi web (komputer & iPhone), dengan login email + password. Data sama di semua perangkat dan tetap bisa dicatat saat offline.
 
@@ -71,10 +72,23 @@ Pertama kali, pilih **Buat akun** lalu daftar dengan email dan password. Di pera
 Setelah akunmu jadi, orang lain sebaiknya tidak bisa membuat akun di aplikasimu:
 Firebase → **Authentication → Settings → User actions** → matikan **Enable create (sign-up)** → **Save**.
 
+
+## 6. Aktifkan baca dari screenshot (sekali saja)
+
+1. Buka Firebase → menu **AI Logic** (di **Layanan AI**) → **Mulai**.
+2. Pilih **Gemini Developer API** (tanpa billing) → ikuti langkahnya sampai selesai. Firebase otomatis mengaktifkan API yang diperlukan.
+3. Tidak perlu mengubah kode. Buka aplikasi, tekan **+** → **Baca dari screenshot**.
+
+Catatan:
+- Di tingkat gratis, Google dapat memakai screenshot yang dikirim untuk meningkatkan layanannya, dan peninjau manusia bisa membacanya. Potong atau tutupi informasi yang tidak perlu. Untuk mencegahnya, hubungkan proyek ke paket Blaze (berbayar); kodenya tetap sama.
+- Model yang dipakai diatur di `src/scan-gemini.js` (`MODELS`). Bila model utama penuh atau tidak tersedia, aplikasi otomatis mencoba model cadangan.
+- Konfigurasi Firebase bersifat publik, jadi orang lain secara teori bisa memakai kuota Gemini proyek ini. Untuk mencegahnya, aktifkan **App Check** di Firebase.
+
 ## Masalah umum
 
 | Gejala | Penyebab & solusi |
 | --- | --- |
+| "Fitur baca screenshot belum diaktifkan" | Ikuti bagian 6 (AI Logic). |
 | Muncul "Pengaturan belum lengkap" | `firebase-config.json` masih kosong. Isi sesuai langkah 1.7. |
 | "Login email/password belum diaktifkan" | Ulangi langkah 1.3. |
 | "Akses data ditolak" | Aturan Firestore belum dipasang. Ulangi langkah 1.5. |

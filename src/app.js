@@ -68,11 +68,12 @@ const initials = (name) => {
   const s = w.length > 1 ? w[0][0] + w[1][0] : w[0].slice(0, 3);
   return s.toUpperCase();
 };
+const SCAN_ICON = '<path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M8 10h8M8 14h5"/>';
 const icon = (paths, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
 const opt = (v, label, sel) => `<option value="${esc(v)}"${String(v) === String(sel) ? " selected" : ""}>${esc(label)}</option>`;
 
 /* ================= Aplikasi ================= */
-export function startApp({ data, env }) {
+export function startApp({ data, scanner, env }) {
   const S = {
     user: null, view: "beranda", month: todayStr().slice(0, 7),
     tx: [], akun: [], tab: [], ren: [], biz: [], budget: {},
@@ -533,7 +534,7 @@ export function startApp({ data, env }) {
         <select id="fScope" aria-label="Filter pribadi atau bisnis">${opt("", "Pribadi & bisnis", f.scope)}${opt("pribadi", "Pribadi saja", f.scope)}${S.biz.map((b) => opt(b.id, "Bisnis: " + b.nama, f.scope)).join("")}</select>
         <input class="search" id="fQ" type="search" placeholder="Cari catatan, kategori…" aria-label="Cari transaksi" value="${esc(f.q)}">
       </div>
-      <div class="sum-line"><span>${rows.length} transaksi</span><span>Masuk <b class="num pos">${fmt(mi)}</b></span><span>Keluar <b class="num neg">${fmt(mo)}</b></span>${env.native ? "" : '<button class="btn ghost small" data-act="csv">Unduh CSV</button>'}</div>
+      <div class="sum-line"><span>${rows.length} transaksi</span><span>Masuk <b class="num pos">${fmt(mi)}</b></span><span>Keluar <b class="num neg">${fmt(mo)}</b></span><span class="sum-btns">${scanner ? `<button class="btn small" data-act="scan" data-akun="${esc(f.akun)}">${icon(SCAN_ICON)}Baca screenshot</button>` : ""}${env.native ? "" : '<button class="btn ghost small" data-act="csv">Unduh CSV</button>'}</span></div>
       </section>`;
     h += `<section class="card"><div class="list">`;
     if (!S.tx.some((t) => t.bulan === S.month)) h += emptyBox(`Belum ada transaksi di ${monthName(S.month)}.`, "Tekan tombol + untuk mencatat yang pertama.");
@@ -560,7 +561,7 @@ export function startApp({ data, env }) {
           <div class="acc-top">${badge(a)}<div class="acc-name"><b>${esc(a.nama)}</b><span class="muted small">${JENIS_NAME[a.jenis] || "Lainnya"}</span></div><button class="btn ghost small" data-act="akun-edit" data-id="${esc(a.id)}">Ubah</button></div>
           <div class="acc-bal num ${D.bal[a.id] < 0 ? "neg" : ""}">${fmtSigned(D.bal[a.id])}</div>
           <div class="acc-flow"><span>Bulan ini masuk <b class="num pos">${fmtS(mm.masuk)}</b></span><span>keluar <b class="num neg">${fmtS(mm.keluar)}</b></span></div>
-          <div class="acc-act"><button class="btn small" data-act="add-tx" data-tipe="keluar" data-akun="${esc(a.id)}">Catat</button><button class="btn small" data-act="add-tx" data-tipe="transfer" data-akun="${esc(a.id)}" ${D.aktifAkun.length < 2 ? "disabled" : ""}>Transfer</button><button class="btn small" data-act="akun-tx" data-id="${esc(a.id)}">Riwayat</button></div>
+          <div class="acc-act"><button class="btn small" data-act="add-tx" data-tipe="keluar" data-akun="${esc(a.id)}">Catat</button><button class="btn small" data-act="add-tx" data-tipe="transfer" data-akun="${esc(a.id)}" ${D.aktifAkun.length < 2 ? "disabled" : ""}>Transfer</button><button class="btn small" data-act="akun-tx" data-id="${esc(a.id)}">Riwayat</button>${scanner ? `<button class="btn small" data-act="scan" data-akun="${esc(a.id)}">Impor mutasi</button>` : ""}</div>
         </article>`;
       }
       h += "</div></section>";
@@ -673,8 +674,9 @@ export function startApp({ data, env }) {
 
   /* ================= Lembar (sheet) ================= */
   let sheetOnClose = null;
-  function openSheet(title, html, onBind) {
+  function openSheet(title, html, onBind, wide = false) {
     $("sheetTitle").textContent = title;
+    $("sheet").querySelector(".sheet").classList.toggle("wide", wide);
     $("sheetBody").innerHTML = html;
     $("sheet").hidden = false;
     document.body.classList.add("locked");
@@ -733,7 +735,8 @@ export function startApp({ data, env }) {
         return;
       }
       const types = [["keluar", "Keluar"], ["masuk", "Masuk"], ["transfer", "Transfer"], ["tabungan", "Tabungan"]];
-      let h = `<div class="seg four" role="group" aria-label="Jenis transaksi">${types.map(([k, n]) => `<button type="button" data-t="${k}" aria-pressed="${F.tipe === k}" ${k === "transfer" && akunList.length < 2 ? "disabled" : ""}>${n}</button>`).join("")}</div><form id="txF" novalidate>`;
+      let h = scanner && !F.id ? `<button type="button" class="scan-cta" id="tScan">${icon(SCAN_ICON)}<span><b>Baca dari screenshot</b><small>Mutasi rekening, riwayat e-wallet, struk, bukti transfer</small></span></button>` : "";
+      h += `<div class="seg four" role="group" aria-label="Jenis transaksi">${types.map(([k, n]) => `<button type="button" data-t="${k}" aria-pressed="${F.tipe === k}" ${k === "transfer" && akunList.length < 2 ? "disabled" : ""}>${n}</button>`).join("")}</div><form id="txF" novalidate>`;
       if (F.tipe === "tabungan") {
         h += `<div class="seg" role="group" aria-label="Setor atau tarik"><button type="button" data-arah="setor" aria-pressed="${F.arah === "setor"}">Setor ke tabungan</button><button type="button" data-arah="tarik" aria-pressed="${F.arah === "tarik"}">Tarik dari tabungan</button></div>`;
       }
@@ -795,6 +798,7 @@ export function startApp({ data, env }) {
     }
     function bind(root) {
       bindMoney(root);
+      const scBtn = $("tScan"); if (scBtn) scBtn.onclick = () => { read(); closeSheet(); openScan({ akun: F.akun }); };
       root.querySelectorAll("[data-t]").forEach((b) => (b.onclick = () => {
         read(); F.tipe = b.dataset.t;
         if (F.tipe === "transfer" && (!F.keAkun || F.keAkun === F.akun)) { const o2 = akunList.find((a) => a.id !== F.akun); F.keAkun = o2 ? o2.id : ""; }
@@ -987,6 +991,213 @@ export function startApp({ data, env }) {
     });
   }
 
+
+  /* ---------- baca dari screenshot ---------- */
+  function openScan(o = {}) {
+    if (!D.aktifAkun.length) {
+      openSheet("Baca dari screenshot", emptyBox("Tambahkan rekening dulu.", "Transaksi dari screenshot dicatat ke rekening tertentu, supaya saldonya otomatis berubah.", '<button class="btn primary" data-act="akun-new">Tambah rekening</button>'));
+      return;
+    }
+    const SC = { files: 0, items: [], sumber: "", akun: "", scope: "pribadi", errors: [], token: {} };
+    const pick = (id) => (D.aktifAkun.some((a) => a.id === id) ? id : "");
+    SC.akun = pick(o.akun) || pick(lsGet("kas.lastAkun")) || D.aktifAkun[0].id;
+    let akunFromUser = !!pick(o.akun);
+    const today = todayStr();
+
+    const catOptions = (it) => {
+      const g = SC.scope === "pribadi" ? CATS : BIZ_CATS;
+      return g[it.arah].map(([k, n]) => opt(k, n, it.kat)).join("");
+    };
+    function defaultCat(it) {
+      if (SC.scope !== "pribadi") return it.arah === "masuk" ? "b_jual" : it.ai === "admin" ? "b_lain" : it.ai === "transport" ? "b_kirim" : "b_ops";
+      return CATS[it.arah].some(([k]) => k === it.ai) ? it.ai : it.arah === "masuk" ? "lainnya_in" : "lainnya";
+    }
+    function markDups() {
+      const seen = new Set();
+      for (const it of SC.items) {
+        const key = `${it.tanggal}|${it.arah}|${it.jumlah}`;
+        const tipe = it.arah;
+        const saved = S.tx.some((t) => t.tipe === tipe && +t.jumlah === it.jumlah && t.tanggal === it.tanggal && (!t.akun || t.akun === SC.akun));
+        const inBatch = seen.has(key + "|" + it.ket.toLowerCase());
+        const dup = saved ? "Mungkin sudah tercatat" : inBatch ? "Muncul di dua screenshot" : "";
+        if (dup !== it.dup) { it.dup = dup; if (!it.touched) it.on = !dup; }
+        seen.add(key + "|" + it.ket.toLowerCase());
+      }
+    }
+    function matchAkun(sumber) {
+      const s = String(sumber || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!s) return "";
+      const a = D.aktifAkun.find((x) => { const n = x.nama.toLowerCase().replace(/[^a-z0-9]/g, ""); return n && (n.includes(s) || s.includes(n)); });
+      return a ? a.id : "";
+    }
+
+    /* langkah 1: pilih gambar */
+    function drawPick() {
+      const h = `<label class="drop" for="scFile">
+          ${icon(SCAN_ICON, "ic big")}
+          <b>Pilih screenshot</b>
+          <span class="muted small">Mutasi rekening, riwayat e-wallet, struk belanja, atau bukti transfer. Bisa beberapa sekaligus.${innerWidth > 860 ? " Bisa juga tempel dengan Ctrl+V." : ""}</span>
+          <input id="scFile" type="file" accept="image/*" multiple>
+        </label>
+        ${SC.items.length ? `<button class="btn block" type="button" id="scBack">Kembali ke ${SC.items.length} transaksi terbaca</button>` : ""}
+        <p class="muted small privacy">Screenshot dikirim ke Gemini (Google) untuk dibaca. Di tingkat gratis, Google dapat memakainya untuk meningkatkan layanannya. Potong atau tutupi informasi yang tidak perlu, seperti nomor rekening lengkap. Hasil bacaan selalu kamu periksa dulu sebelum disimpan.</p>`;
+      openSheet("Baca dari screenshot", h, (root) => {
+        root.querySelector("#scFile").onchange = (e) => { const fs = [...e.target.files]; if (fs.length) run(fs); };
+        const bk = $("scBack"); if (bk) bk.onclick = drawReview;
+      });
+    }
+    function onPaste(e) {
+      if ($("sheet").hidden || !$("scFile")) return;
+      const fs = [...((e.clipboardData && e.clipboardData.items) || [])].filter((i) => i.kind === "file" && i.type.startsWith("image/")).map((i) => i.getAsFile()).filter(Boolean);
+      if (fs.length) { e.preventDefault(); run(fs); }
+    }
+    document.addEventListener("paste", onPaste);
+    const token = SC.token;
+    const prevClose = sheetOnClose;
+    sheetOnClose = () => { document.removeEventListener("paste", onPaste); SC.token = null; if (prevClose) prevClose(); };
+
+    /* langkah 2: membaca */
+    async function run(files) {
+      const list = files.filter((f) => /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic|heif)$/i.test(f.name || ""));
+      if (!list.length) { toast("Pilih file gambar (PNG atau JPG)."); return; }
+      const status = list.map(() => "Menunggu");
+      const paint = () => {
+        $("sheetBody").innerHTML = `<div class="reading"><div class="spinner" aria-hidden="true"></div><b>Membaca screenshot…</b>
+          <ul class="read-list">${list.map((f, i) => `<li><span>${esc(f.name || "Gambar " + (i + 1))}</span><span class="muted">${status[i]}</span></li>`).join("")}</ul>
+          <p class="muted small">Biasanya beberapa detik per gambar. Jangan tutup aplikasi.</p></div>`;
+      };
+      openSheet("Baca dari screenshot", "", null, false); paint();
+      const errs = [];
+      for (let i = 0; i < list.length; i++) {
+        if (SC.token !== token) return; // lembar ditutup
+        status[i] = "Membaca…"; paint();
+        try {
+          const r = await scanner.read(list[i], today);
+          if (SC.token !== token) return;
+          if (r.sumber && !SC.sumber) SC.sumber = r.sumber;
+          let n = 0;
+          for (const t of r.transaksi) {
+            const jumlah = Math.round(Math.abs(Number(t.jumlah) || 0));
+            if (!jumlah) continue;
+            const arah = t.arah === "masuk" ? "masuk" : "keluar";
+            const okDate = /^\d{4}-\d{2}-\d{2}$/.test(t.tanggal || "") && !isNaN(Date.parse(t.tanggal));
+            const it = { on: true, touched: false, tanggal: okDate ? t.tanggal : today, arah, jumlah, ket: String(t.keterangan || "").slice(0, 120), ai: t.kategori, kat: "", dup: "",
+              warn: !okDate ? "Tanggal tidak terbaca, diisi hari ini" : t.tanggal > today ? "Tanggal di masa depan, periksa lagi" : "" };
+            it.kat = defaultCat(it);
+            SC.items.push(it); n++;
+          }
+          status[i] = n ? `${n} transaksi` : "Tidak ada transaksi";
+        } catch (e) {
+          status[i] = "Gagal";
+          errs.push(scanner.errorText(e));
+          if (e && (e.code === "api-not-enabled" || (e.customErrorData && e.customErrorData.status === 403))) break;
+        }
+        paint();
+      }
+      if (SC.token !== token) return;
+      SC.files += list.length;
+      if (!akunFromUser) { const m = matchAkun(SC.sumber); if (m) SC.akun = m; }
+      SC.errors = [...new Set(errs)];
+      markDups();
+      if (!SC.items.length) {
+        openSheet("Baca dari screenshot", `${SC.errors.length ? `<p class="err">${esc(SC.errors[0])}</p>` : emptyBox("Tidak ada transaksi yang terbaca.", "Pastikan screenshot memperlihatkan daftar transaksi dengan nominal dan tanggalnya, lalu coba lagi.")}
+          <div class="form-actions"><button class="btn primary" type="button" id="scAgain">Pilih screenshot lain</button></div>`, () => { $("scAgain").onclick = drawPick; });
+        return;
+      }
+      drawReview();
+    }
+
+    /* langkah 3: periksa & simpan */
+    function rowHtml(it, i) {
+      return `<div class="scan-item${it.on ? "" : " off"}" data-i="${i}">
+        <div class="scan-top">
+          <label class="check"><input type="checkbox" data-f="on" ${it.on ? "checked" : ""} aria-label="Simpan transaksi ini"><span></span></label>
+          <select data-f="arah" class="arah ${it.arah}" aria-label="Masuk atau keluar">${opt("keluar", "Keluar", it.arah)}${opt("masuk", "Masuk", it.arah)}</select>
+          <div class="money sm"><span>Rp</span><input data-f="jumlah" inputmode="numeric" value="${moneyVal(it.jumlah)}" aria-label="Jumlah"></div>
+        </div>
+        <div class="scan-grid">
+          <input data-f="tanggal" type="date" value="${esc(it.tanggal)}" aria-label="Tanggal">
+          <select data-f="kat" aria-label="Kategori">${catOptions(it)}</select>
+          <input data-f="ket" maxlength="120" value="${esc(it.ket)}" placeholder="Keterangan" aria-label="Keterangan">
+        </div>
+        ${it.dup || it.warn ? `<div class="meta">${it.dup ? `<span class="chip-s warn">${esc(it.dup)}</span>` : ""}${it.warn ? `<span class="chip-s warn">${esc(it.warn)}</span>` : ""}</div>` : ""}
+      </div>`;
+    }
+    function summary() {
+      const chosen = SC.items.filter((it) => it.on && it.jumlah);
+      let mi = 0, mo = 0, delta = 0;
+      const a = D.akunMap[SC.akun];
+      for (const it of chosen) {
+        if (it.arah === "masuk") mi += it.jumlah; else mo += it.jumlah;
+        if (a && countsFor({ tanggal: it.tanggal, dibuat: Date.now() }, a)) delta += it.arah === "masuk" ? it.jumlah : -it.jumlah;
+      }
+      const b = D.bal[SC.akun] || 0;
+      const el = $("scSum"); if (!el) return;
+      el.innerHTML = `<div class="pv"><span>${chosen.length} dipilih</span><span><b class="num pos">+${fmt(mi)}</b> · <b class="num neg">−${fmt(mo)}</b></span></div>
+        <div class="pv"><span>Saldo ${esc(akunLabel(SC.akun))}</span><span class="num">${fmtSigned(b)} → <b class="${b + delta < 0 ? "neg" : ""}">${fmtSigned(b + delta)}</b></span></div>
+        ${delta !== mi - mo ? '<p class="muted small">Sebagian transaksi bertanggal sebelum saldo awal rekening ini dicatat, jadi tidak mengubah saldo.</p>' : ""}`;
+      const btn = $("scSave"); if (btn) { btn.disabled = !chosen.length; btn.textContent = chosen.length ? `Simpan ${chosen.length} transaksi` : "Pilih transaksi dulu"; }
+    }
+    function drawReview() {
+      const nDup = SC.items.filter((it) => it.dup).length;
+      const h = `<div class="scan-head">
+          <p class="small muted">${SC.items.length} transaksi terbaca dari ${SC.files} screenshot${SC.sumber ? ` · terdeteksi <b>${esc(SC.sumber)}</b>` : ""}. Periksa dan perbaiki bila ada yang salah.${nDup ? ` ${nDup} kemungkinan duplikat tidak dicentang.` : ""}</p>
+          ${SC.errors.length ? `<p class="err">${esc(SC.errors.join(" "))}</p>` : ""}
+          <div class="pair">
+            ${field("scAkun", "Rekening", `<select id="scAkun">${D.aktifAkun.map((a) => opt(a.id, `${a.nama} · ${fmtSigned(D.bal[a.id])}`, SC.akun)).join("")}</select>`)}
+            ${field("scScope", "Untuk", `<select id="scScope">${opt("pribadi", "Pribadi", SC.scope)}${D.aktifBiz.map((b) => opt(b.id, "Bisnis: " + b.nama, SC.scope)).join("")}</select>`)}
+          </div>
+          <div class="scan-tools"><button class="btn ghost small" type="button" id="scAll">Centang semua</button><button class="btn ghost small" type="button" id="scNone">Hapus centang</button><button class="btn ghost small" type="button" id="scMore">+ Screenshot lain</button></div>
+        </div>
+        <div class="scan-list">${SC.items.map(rowHtml).join("")}</div>
+        <div class="sheet-foot"><div class="preview" id="scSum"></div><button class="btn primary block" type="button" id="scSave">Simpan</button></div>`;
+      openSheet("Periksa hasil bacaan", h, (root) => {
+        bindMoney(root);
+        root.querySelectorAll(".scan-item [data-f=jumlah]").forEach((i) => i.closest(".money").classList.add("sm"));
+        $("scAkun").onchange = (e) => { SC.akun = e.target.value; akunFromUser = true; markDups(); drawReview(); };
+        $("scScope").onchange = (e) => { SC.scope = e.target.value; SC.items.forEach((it) => (it.kat = defaultCat(it))); drawReview(); };
+        $("scAll").onclick = () => { SC.items.forEach((it) => { it.on = true; it.touched = true; }); drawReview(); };
+        $("scNone").onclick = () => { SC.items.forEach((it) => { it.on = false; it.touched = true; }); drawReview(); };
+        $("scMore").onclick = drawPick;
+        const list = root.querySelector(".scan-list");
+        const upd = (e) => {
+          const box = e.target.closest(".scan-item"); if (!box) return;
+          const it = SC.items[+box.dataset.i], f = e.target.dataset.f;
+          if (!f) return;
+          if (f === "on") { it.on = e.target.checked; it.touched = true; box.classList.toggle("off", !it.on); }
+          else if (f === "jumlah") it.jumlah = parseMoney(e.target.value);
+          else if (f === "tanggal") it.tanggal = e.target.value;
+          else if (f === "ket") it.ket = e.target.value;
+          else if (f === "kat") it.kat = e.target.value;
+          else if (f === "arah") { it.arah = e.target.value; it.kat = defaultCat(it); box.outerHTML = rowHtml(it, +box.dataset.i); }
+          summary();
+        };
+        list.addEventListener("input", upd);
+        list.addEventListener("change", upd);
+        $("scSave").onclick = save;
+        summary();
+      }, true);
+    }
+    function save() {
+      const chosen = SC.items.filter((it) => it.on && it.jumlah);
+      const bad = chosen.find((it) => !/^\d{4}-\d{2}-\d{2}$/.test(it.tanggal || ""));
+      if (bad) { toast("Ada transaksi tanpa tanggal. Isi tanggalnya dulu."); return; }
+      const now = Date.now();
+      const items = chosen.map((it, i) => ({
+        id: data.newId("tx"),
+        data: {
+          tipe: it.arah, jumlah: it.jumlah, akun: SC.akun, kategori: it.kat, bisnis: SC.scope === "pribadi" ? null : SC.scope,
+          catatan: it.ket.trim().slice(0, 120), tanggal: it.tanggal, bulan: it.tanggal.slice(0, 7), dibuat: now + i, sumber: "screenshot",
+        },
+      }));
+      lsSet("kas.lastAkun", SC.akun);
+      write(data.saveMany("tx", items));
+      closeSheet();
+      toast(`${items.length} transaksi tersimpan ke ${akunLabel(SC.akun)}`);
+    }
+    drawPick();
+  }
+
   /* ---------- akun pengguna ---------- */
   function openAccount() {
     const h = `<div class="kv"><span>Masuk sebagai</span><b>${esc(S.user.email || "akun ini")}</b></div>
@@ -1033,6 +1244,7 @@ export function startApp({ data, env }) {
         break;
       }
       case "csv": exportCsv(); break;
+      case "scan": closeSheet(); openScan({ akun: b.dataset.akun }); break;
     }
   });
   document.addEventListener("keydown", (e) => {

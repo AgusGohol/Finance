@@ -35,6 +35,7 @@ export function createFirebaseData(config) {
   const col = (name) => collection(db, "users", uid, name);
 
   return {
+    app,
     onAuth(cb) {
       return onAuthStateChanged(auth, (u) => { uid = u ? u.uid : null; cb(u ? { uid: u.uid, email: u.email } : null); });
     },
@@ -57,6 +58,14 @@ export function createFirebaseData(config) {
     save: (name, id, data) => setDoc(doc(col(name), id), data),
     patch: (name, id, data) => updateDoc(doc(col(name), id), data),
     remove: (name, id) => deleteDoc(doc(col(name), id)),
+    /** Simpan banyak dokumen baru sekaligus (dipecah per 400). items: [{id, data}] */
+    async saveMany(name, items) {
+      for (let i = 0; i < items.length; i += 400) {
+        const b = writeBatch(db);
+        for (const it of items.slice(i, i + 400)) b.set(doc(col(name), it.id), it.data);
+        await b.commit();
+      }
+    },
     /** Perbarui banyak dokumen sekaligus (dipecah per 400). */
     async patchMany(name, items) {
       for (let i = 0; i < items.length; i += 400) {

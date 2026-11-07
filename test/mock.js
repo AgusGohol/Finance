@@ -57,6 +57,7 @@ export function createMockData({ loggedIn = true, empty = false, legacy = false 
     async save(col, did, data) { const i = db[col].findIndex((x) => x.id === did); const rec = { id: did, ...data }; if (i >= 0) db[col][i] = rec; else db[col].push(rec); emit(col); },
     async patch(col, did, data) { const x = db[col].find((y) => y.id === did); Object.assign(x, data); emit(col); },
     async remove(col, did) { const i = db[col].findIndex((x) => x.id === did); if (i >= 0) db[col].splice(i, 1); emit(col); },
+    async saveMany(col, items) { for (const it of items) db[col].push({ id: it.id, ...it.data }); emit(col); },
     async patchMany(col, items) { for (const it of items) Object.assign(db[col].find((y) => y.id === it.id), it.data); emit(col); },
     _db: db,
   };
