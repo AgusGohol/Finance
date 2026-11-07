@@ -1,10 +1,10 @@
 // Pembaca screenshot tiruan untuk pengujian tampilan (tanpa Gemini).
-export function createMockScanner({ fail = false } = {}) {
+export function createMockScanner({ fail = false, slow = false } = {}) {
   const m = new Date().toISOString().slice(0, 7);
   const d = (n) => m + "-" + String(n).padStart(2, "0");
   return {
     async read(file, today) {
-      await new Promise((r) => setTimeout(r, 300));
+      await new Promise((r) => setTimeout(r, slow ? 2600 : 300));
       if (fail) { const e = new Error("x"); e.code = "api-not-enabled"; throw e; }
       return {
         sumber: "BCA",

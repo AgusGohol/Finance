@@ -7,5 +7,5 @@ const h = readFileSync("src/index.html", "utf8").replaceAll("%BUILD%", "0")
   .replace('<script type="module" src="app.js?v=0"></script>',
     `<script type="module">import {startApp} from "/src/app.js"; import {createMockData} from "/test/mock.js"; import {createMockScanner} from "/test/scan-mock.js";
    const q=new URLSearchParams(location.search); const data=createMockData({loggedIn:!q.has("out"),empty:q.has("empty"),legacy:q.has("legacy")}); window.__db=data._db;
-   startApp({data, scanner:createMockScanner({fail:q.has("scanerr")}), env:{native:q.has("native"),build:3,repo:""}});</script>`);
+   startApp({data, scanner:createMockScanner({fail:q.has("scanerr"),slow:q.has("slow")}), env:{native:q.has("native"),build:3,repo:""}});</script>`);
 writeFileSync("test/index.html", h);

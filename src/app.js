@@ -1060,39 +1060,60 @@ export function startApp({ data, scanner, env }) {
     async function run(files) {
       const list = files.filter((f) => /^image\//.test(f.type) || /\.(png|jpe?g|webp|heic|heif)$/i.test(f.name || ""));
       if (!list.length) { toast("Pilih file gambar (PNG atau JPG)."); return; }
-      const status = list.map(() => "Menunggu");
+      const status = list.map(() => "Menunggu"), started = list.map(() => 0), results = list.map(() => null);
+      let cancelled = false, stopAll = false;
+      const t0 = Date.now();
       const paint = () => {
-        $("sheetBody").innerHTML = `<div class="reading"><div class="spinner" aria-hidden="true"></div><b>Membaca screenshot…</b>
-          <ul class="read-list">${list.map((f, i) => `<li><span>${esc(f.name || "Gambar " + (i + 1))}</span><span class="muted">${status[i]}</span></li>`).join("")}</ul>
-          <p class="muted small">Biasanya beberapa detik per gambar. Jangan tutup aplikasi.</p></div>`;
+        if (SC.token !== token || cancelled) return;
+        const body = $("sheetBody"); if (!body) return;
+        const now = Date.now();
+        body.innerHTML = `<div class="reading"><div class="spinner" aria-hidden="true"></div><b>Membaca screenshot… <span class="num muted">${Math.floor((now - t0) / 1000)} dtk</span></b>
+          <ul class="read-list">${list.map((f, i) => `<li><span>${esc(f.name || "Gambar " + (i + 1))}</span><span class="muted">${status[i] === "Membaca" ? `Membaca… ${Math.floor((now - started[i]) / 1000)} dtk` : status[i]}</span></li>`).join("")}</ul>
+          <p class="muted small">Biasanya 5–20 detik per gambar. Bila lebih dari 45 detik, aplikasi mencoba lagi dengan model lain.</p>
+          <button class="btn" type="button" id="scCancel">Batal</button></div>`;
+        $("scCancel").onclick = () => {
+          cancelled = true; clearInterval(tick);
+          if (SC.items.length) drawReview(); else drawPick();
+        };
       };
       openSheet("Baca dari screenshot", "", null, false); paint();
+      const tick = setInterval(paint, 1000);
       const errs = [];
-      for (let i = 0; i < list.length; i++) {
-        if (SC.token !== token) return; // lembar ditutup
-        status[i] = "Membaca…"; paint();
-        try {
-          const r = await scanner.read(list[i], today);
-          if (SC.token !== token) return;
-          if (r.sumber && !SC.sumber) SC.sumber = r.sumber;
-          let n = 0;
-          for (const t of r.transaksi) {
-            const jumlah = Math.round(Math.abs(Number(t.jumlah) || 0));
-            if (!jumlah) continue;
-            const arah = t.arah === "masuk" ? "masuk" : "keluar";
-            const okDate = /^\d{4}-\d{2}-\d{2}$/.test(t.tanggal || "") && !isNaN(Date.parse(t.tanggal));
-            const it = { on: true, touched: false, tanggal: okDate ? t.tanggal : today, arah, jumlah, ket: String(t.keterangan || "").slice(0, 120), ai: t.kategori, kat: "", dup: "",
-              warn: !okDate ? "Tanggal tidak terbaca, diisi hari ini" : t.tanggal > today ? "Tanggal di masa depan, periksa lagi" : "" };
-            it.kat = defaultCat(it);
-            SC.items.push(it); n++;
+      // Baca dua gambar sekaligus supaya beberapa screenshot lebih cepat selesai.
+      let next = 0;
+      async function worker() {
+        while (next < list.length && !stopAll && !cancelled && SC.token === token) {
+          const i = next++;
+          status[i] = "Membaca"; started[i] = Date.now(); paint();
+          try {
+            results[i] = await scanner.read(list[i], today);
+            const n = results[i].transaksi.filter((t) => Math.round(Math.abs(Number(t.jumlah) || 0))).length;
+            status[i] = n ? `${n} transaksi` : "Tidak ada transaksi";
+          } catch (e) {
+            status[i] = "Gagal";
+            errs.push(scanner.errorText(e));
+            if (e && (e.code === "api-not-enabled" || (e.customErrorData && e.customErrorData.status === 403))) stopAll = true;
           }
-          status[i] = n ? `${n} transaksi` : "Tidak ada transaksi";
-        } catch (e) {
-          status[i] = "Gagal";
-          errs.push(scanner.errorText(e));
-          if (e && (e.code === "api-not-enabled" || (e.customErrorData && e.customErrorData.status === 403))) break;
+          paint();
         }
-        paint();
+      }
+      await Promise.all([worker(), worker()]);
+      clearInterval(tick);
+      if (cancelled) return;
+      for (let i = 0; i < list.length; i++) if (status[i] === "Menunggu") status[i] = "Dilewati";
+      for (const r of results) {
+        if (!r) continue;
+        if (r.sumber && !SC.sumber) SC.sumber = r.sumber;
+        for (const t of r.transaksi) {
+          const jumlah = Math.round(Math.abs(Number(t.jumlah) || 0));
+          if (!jumlah) continue;
+          const arah = t.arah === "masuk" ? "masuk" : "keluar";
+          const okDate = /^\d{4}-\d{2}-\d{2}$/.test(t.tanggal || "") && !isNaN(Date.parse(t.tanggal));
+          const it = { on: true, touched: false, tanggal: okDate ? t.tanggal : today, arah, jumlah, ket: String(t.keterangan || "").slice(0, 120), ai: t.kategori, kat: "", dup: "",
+            warn: !okDate ? "Tanggal tidak terbaca, diisi hari ini" : t.tanggal > today ? "Tanggal di masa depan, periksa lagi" : "" };
+          it.kat = defaultCat(it);
+          SC.items.push(it);
+        }
       }
       if (SC.token !== token) return;
       SC.files += list.length;
