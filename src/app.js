@@ -2,7 +2,7 @@
 // (lihat data-firebase.js), sehingga bagian ini bisa diuji dengan data tiruan.
 
 /* ================= Konstanta ================= */
-const CATS = {
+const BASE_CATS = {
   keluar: [
     ["makan", "Makan & Minum"], ["transport", "Transportasi"], ["belanja", "Belanja Harian"], ["tagihan", "Tagihan & Pulsa"],
     ["hiburan", "Hiburan"], ["kesehatan", "Kesehatan"], ["pendidikan", "Pendidikan"], ["keluarga", "Keluarga & Sosial"],
@@ -18,7 +18,7 @@ const BIZ_CATS = {
   ],
 };
 const CAT_NAME = {};
-for (const g of [CATS, BIZ_CATS]) for (const t in g) for (const [k, n] of g[t]) CAT_NAME[k] = n;
+for (const g of [BASE_CATS, BIZ_CATS]) for (const t in g) for (const [k, n] of g[t]) CAT_NAME[k] = n;
 
 const JENIS = [["bank", "Bank"], ["ewallet", "E-wallet"], ["tunai", "Tunai"], ["lain", "Lainnya"]];
 const JENIS_NAME = Object.fromEntries(JENIS);
@@ -76,13 +76,41 @@ const opt = (v, label, sel) => `<option value="${esc(v)}"${String(v) === String(
 export function startApp({ data, scanner, env }) {
   const S = {
     user: null, view: "beranda", month: todayStr().slice(0, 7),
-    tx: [], akun: [], tab: [], ren: [], biz: [], budget: {},
+    tx: [], akun: [], tab: [], ren: [], biz: [], budget: {}, kat: { keluar: [], masuk: [] },
     loaded: { tx: false, akun: false, tabungan: false, rencana: false, bisnis: false },
     pending: {}, unsubs: [],
     f: { tipe: "semua", akun: "", scope: "", q: "" },
     confirmId: null, showArchived: false,
   };
   let D = null; // data turunan (saldo, ringkasan)
+
+  /* Kategori: bawaan + buatan sendiri (settings/kategori). */
+  const customCats = (tipe) => (S.kat[tipe] || []).filter((c) => !c.arsip).map((c) => [c.id, c.nama]);
+  const CATS = {
+    get keluar() { return BASE_CATS.keluar.concat(customCats("keluar")); },
+    get masuk() { return BASE_CATS.masuk.concat(customCats("masuk")); },
+  };
+  const catName = (k) => {
+    if (CAT_NAME[k]) return CAT_NAME[k];
+    for (const t of ["keluar", "masuk"]) { const c = (S.kat[t] || []).find((x) => x.id === k); if (c) return c.nama; }
+    return k || "";
+  };
+  const newCatId = () => "u_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  function saveKat(next) { S.kat = next; write(data.save("settings", "kategori", next)); }
+  /** Tambah kategori pribadi; mengembalikan id (atau id lama bila nama sudah ada). */
+  function addCat(tipe, nama) {
+    nama = String(nama || "").trim().slice(0, 30);
+    if (!nama) return "";
+    const same = CATS[tipe].find(([, n]) => n.toLowerCase() === nama.toLowerCase());
+    if (same) return same[0];
+    const arch = (S.kat[tipe] || []).find((c) => c.arsip && c.nama.toLowerCase() === nama.toLowerCase());
+    const next = { keluar: [...(S.kat.keluar || [])], masuk: [...(S.kat.masuk || [])] };
+    if (arch) { next[tipe] = next[tipe].map((c) => (c.id === arch.id ? { ...c, arsip: false } : c)); saveKat(next); return arch.id; }
+    const id = newCatId();
+    next[tipe].push({ id, nama });
+    saveKat(next);
+    return id;
+  }
 
   function show(view) { for (const v of ["setupView", "loadView", "authView", "appView"]) $(v).hidden = v !== view; }
   if (!data) { show("setupView"); return; }
@@ -165,7 +193,7 @@ export function startApp({ data, scanner, env }) {
     S.user = user;
     if (!user) { setAuthMode("masuk"); show("authView"); return; }
     for (const [col, key] of COLS) { S[key] = []; S.loaded[col] = false; }
-    S.budget = {}; S.month = todayStr().slice(0, 7);
+    S.budget = {}; S.kat = { keluar: [], masuk: [] }; S.month = todayStr().slice(0, 7);
     const h = (location.hash || "").slice(1);
     S.view = VIEWS.some((v) => v[0] === h) ? h : "beranda";
     show("appView");
@@ -175,6 +203,7 @@ export function startApp({ data, scanner, env }) {
       }, (e) => { S.loaded[col] = true; scheduleRender(); toast(dataErr(e)); }));
     }
     S.unsubs.push(data.watchDoc("settings", "anggaran", (b) => { S.budget = { ...b }; scheduleRender(); }, (e) => toast(dataErr(e))));
+    S.unsubs.push(data.watchDoc("settings", "kategori", (k) => { S.kat = { keluar: k.keluar || [], masuk: k.masuk || [] }; scheduleRender(); }, (e) => toast(dataErr(e))));
     buildNav(); render(); checkUpdate();
   });
 
@@ -342,7 +371,7 @@ export function startApp({ data, scanner, env }) {
     void today;
     let title = "", sub = [], amtCls = "", sign = "", amt = +t.jumlah || 0;
     if (t.tipe === "masuk" || t.tipe === "keluar") {
-      title = CAT_NAME[t.kategori] || t.kategori || "Tanpa kategori";
+      title = catName(t.kategori) || "Tanpa kategori";
       amtCls = t.tipe === "masuk" ? "pos" : "neg"; sign = t.tipe === "masuk" ? "+" : "−";
     } else if (t.tipe === "transfer") {
       title = `Transfer ke ${akunLabel(t.keAkun)}`; amtCls = "neu"; sign = "";
@@ -517,7 +546,7 @@ export function startApp({ data, scanner, env }) {
       if (f.scope === "pribadi" && t.bisnis) return false;
       if (f.scope && f.scope !== "pribadi" && t.bisnis !== f.scope) return false;
       if (q) {
-        const hay = [t.catatan, CAT_NAME[t.kategori], akunLabel(t.akun), t.keAkun && akunLabel(t.keAkun), t.tabungan && tabLabel(t.tabungan)].join(" ").toLowerCase();
+        const hay = [t.catatan, catName(t.kategori), akunLabel(t.akun), t.keAkun && akunLabel(t.keAkun), t.tabungan && tabLabel(t.tabungan)].join(" ").toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -649,7 +678,7 @@ export function startApp({ data, scanner, env }) {
           <div><span class="label">Laba</span><b class="num ${laba < 0 ? "neg" : "pos"}">${fmtSigned(laba)}</b>${margin !== null ? `<small class="muted">margin ${margin}%</small>` : ""}</div>
         </div>
         <div class="label">Laba 6 bulan terakhir</div>${miniBars(last)}
-        ${top.length ? `<div class="label">Biaya terbesar bulan ini</div>${top.map(([k, v]) => `<div class="kv"><span>${esc(CAT_NAME[k] || k)}</span><span class="num">${fmt(v)}</span></div>`).join("")}` : ""}
+        ${top.length ? `<div class="label">Biaya terbesar bulan ini</div>${top.map(([k, v]) => `<div class="kv"><span>${esc(catName(k))}</span><span class="num">${fmt(v)}</span></div>`).join("")}` : ""}
         <div class="acc-act"><button class="btn small primary" data-act="add-tx" data-tipe="masuk" data-biz="${esc(b.id)}">+ Pemasukan</button><button class="btn small" data-act="add-tx" data-tipe="keluar" data-biz="${esc(b.id)}">+ Biaya</button><button class="btn small" data-act="biz-tx" data-id="${esc(b.id)}">Riwayat</button></div>
       </article>`;
     }
@@ -723,7 +752,7 @@ export function startApp({ data, scanner, env }) {
       if ($("tKe")) F.keAkun = g("tKe");
       if ($("tBiaya")) F.biaya = parseMoney(g("tBiaya"));
       if ($("tScope")) F.scope = g("tScope");
-      if ($("tCat")) F.kategori = g("tCat");
+      if ($("tCat") && g("tCat") !== "__new") F.kategori = g("tCat");
       if ($("tTab")) F.tabungan = g("tTab");
       if ($("tTgl")) F.tanggal = g("tTgl");
       if ($("tNote")) F.catatan = g("tNote");
@@ -746,7 +775,8 @@ export function startApp({ data, scanner, env }) {
         if (!catList().some((c) => c[0] === F.kategori)) F.kategori = catList()[0][0];
         h += field("tAkun", F.tipe === "masuk" ? "Masuk ke rekening" : "Dibayar dari rekening", `<select id="tAkun">${akOpts(F.akun)}</select>`);
         h += `<div class="pair">${field("tScope", "Untuk", `<select id="tScope">${opt("pribadi", "Pribadi", F.scope)}${D.aktifBiz.concat(S.biz.filter((b) => b.arsip && b.id === F.scope)).map((b) => opt(b.id, "Bisnis: " + b.nama, F.scope)).join("")}</select>`)}
-          ${field("tCat", "Kategori", `<select id="tCat">${catList().map(([k, n]) => opt(k, n, F.kategori)).join("")}</select>`)}</div>`;
+          ${field("tCat", "Kategori", `<select id="tCat">${catList().map(([k, n]) => opt(k, n, F.kategori)).join("")}${F.scope === "pribadi" ? opt("__new", "+ Kategori baru…", "") : ""}</select>`)}</div>
+          <div class="new-cat" id="tNewCat" hidden><input id="tNewName" maxlength="30" placeholder="Nama kategori baru" aria-label="Nama kategori baru"><button type="button" class="btn" id="tNewAdd">Tambah</button></div>`;
       } else if (F.tipe === "transfer") {
         h += `<div class="pair">${field("tAkun", "Dari", `<select id="tAkun">${akOpts(F.akun)}</select>`)}${field("tKe", "Ke", `<select id="tKe">${akOpts(F.keAkun)}</select>`)}</div>`;
         h += field("tBiaya", "Biaya admin (jika ada)", moneyInput("tBiaya", F.biaya), "Dicatat sebagai pengeluaran Biaya Admin Bank.");
@@ -807,6 +837,23 @@ export function startApp({ data, scanner, env }) {
       root.querySelectorAll("[data-arah]").forEach((b) => (b.onclick = () => { read(); F.arah = b.dataset.arah; draw(); }));
       root.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => { const i = $("tJml"); i.value = (parseMoney(i.value) + +b.dataset.add).toLocaleString("id-ID"); preview(); }));
       const sc = $("tScope"); if (sc) sc.onchange = () => { read(); F.kategori = ""; draw(); };
+      const tc = $("tCat");
+      if (tc) {
+        let prevCat = F.kategori;
+        tc.addEventListener("change", () => {
+          if (tc.value !== "__new") { prevCat = tc.value; $("tNewCat").hidden = true; return; }
+          $("tNewCat").hidden = false; $("tNewName").focus();
+        });
+        const addNew = () => {
+          const id = addCat(F.tipe, $("tNewName").value);
+          if (!id) { $("tNewName").focus(); return; }
+          read(); F.kategori = id; prevCat = id; draw();
+          toast("Kategori ditambahkan");
+        };
+        $("tNewAdd").onclick = addNew;
+        $("tNewName").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addNew(); } });
+        tc.addEventListener("blur", () => { if (tc.value === "__new" && $("tNewName").value === "" && document.activeElement !== $("tNewName")) { tc.value = prevCat; $("tNewCat").hidden = true; } });
+      }
       root.querySelectorAll("input,select").forEach((i) => i.addEventListener(i.tagName === "SELECT" ? "change" : "input", preview));
       const del = $("tDel");
       if (del) del.onclick = () => {
@@ -978,19 +1025,56 @@ export function startApp({ data, scanner, env }) {
 
   /* ---------- anggaran ---------- */
   function openBudget() {
-    let h = '<form id="bF" novalidate><p class="muted small">Batas belanja pribadi per bulan. Kosongkan kategori yang tidak perlu dibatasi.</p><div class="b-edit">';
-    for (const [k, n] of CATS.keluar) h += `<label for="b_${k}">${n}</label><div class="money sm"><span>Rp</span><input id="b_${k}" data-k="${k}" inputmode="numeric" value="${moneyVal(+S.budget[k] || 0)}" placeholder="0"></div>`;
-    h += '</div><div class="form-actions"><button class="btn primary" type="submit">Simpan anggaran</button></div></form>';
+    // Baris: kategori bawaan (nama tetap) + kategori sendiri (nama bisa diubah / dihapus) + baris baru.
+    const rows = BASE_CATS.keluar.map(([k, n]) => ({ k, n, own: false }))
+      .concat((S.kat.keluar || []).filter((c) => !c.arsip).map((c) => ({ k: c.id, n: c.nama, own: true })));
+    const removed = new Set();
+    const rowHtml = (r) => r.own
+      ? `<div class="b-name" data-row="${esc(r.k)}"><input class="own-name" data-name="${esc(r.k)}" maxlength="30" value="${esc(r.n)}" placeholder="Nama kategori" aria-label="Nama kategori"><button type="button" class="icon-btn" data-del="${esc(r.k)}" aria-label="Hapus kategori ${esc(r.n)}">✕</button></div><div class="money sm" data-row="${esc(r.k)}"><span>Rp</span><input data-k="${esc(r.k)}" inputmode="numeric" value="${moneyVal(+S.budget[r.k] || 0)}" placeholder="0" aria-label="Anggaran ${esc(r.n)}"></div>`
+      : `<label for="b_${r.k}">${esc(r.n)}</label><div class="money sm"><span>Rp</span><input id="b_${r.k}" data-k="${r.k}" inputmode="numeric" value="${moneyVal(+S.budget[r.k] || 0)}" placeholder="0"></div>`;
+    let h = `<form id="bF" novalidate><p class="muted small">Batas belanja pribadi per bulan. Kosongkan kategori yang tidak perlu dibatasi. Tambahkan kategori dengan nama sendiri bila belum ada; kategori itu juga muncul saat mencatat transaksi.</p>
+      <div class="b-edit" id="bRows">${rows.map(rowHtml).join("")}</div>
+      <button type="button" class="btn block add-cat" id="bAdd">+ Tambah kategori sendiri</button>
+      ${errBox}<div class="form-actions"><button class="btn primary" type="submit">Simpan anggaran</button></div></form>`;
     openSheet("Anggaran pribadi", h, (root) => {
       bindMoney(root);
+      const grid = $("bRows");
+      grid.addEventListener("click", (e) => {
+        const d = e.target.closest("[data-del]"); if (!d) return;
+        const k = d.dataset.del; removed.add(k);
+        grid.querySelectorAll(`[data-row="${CSS.escape(k)}"]`).forEach((el) => el.remove());
+      });
+      $("bAdd").onclick = () => {
+        const k = newCatId();
+        grid.insertAdjacentHTML("beforeend", rowHtml({ k, n: "", own: true }).replace('class="b-name"', 'class="b-name new"'));
+        bindMoney(grid.lastElementChild);
+        const inp = grid.querySelector(`[data-name="${CSS.escape(k)}"]`); inp.focus();
+        inp.scrollIntoView({ block: "center", behavior: "smooth" });
+      };
       $("bF").onsubmit = (e) => {
         e.preventDefault();
-        const b = {}; root.querySelectorAll("[data-k]").forEach((i) => { const v = parseMoney(i.value); if (v) b[i.dataset.k] = v; });
+        // Nama kategori sendiri
+        const own = [...grid.querySelectorAll("[data-name]")].map((i) => ({ id: i.dataset.name, nama: i.value.trim().slice(0, 30) }));
+        const seen = new Set(BASE_CATS.keluar.map(([, n]) => n.toLowerCase()));
+        for (const c of own) {
+          const isNew = !(S.kat.keluar || []).some((x) => x.id === c.id);
+          if (!c.nama) { if (isNew) continue; return sheetErr("Nama kategori tidak boleh kosong. Hapus barisnya bila tidak dipakai."); }
+          if (seen.has(c.nama.toLowerCase())) return sheetErr(`Kategori "${c.nama}" sudah ada.`);
+          seen.add(c.nama.toLowerCase());
+        }
+        const used = new Set(S.tx.map((t) => t.kategori));
+        const keep = own.filter((c) => c.nama);
+        const keluar = (S.kat.keluar || []).filter((c) => c.arsip)
+          .concat((S.kat.keluar || []).filter((c) => !c.arsip && removed.has(c.id) && used.has(c.id)).map((c) => ({ ...c, arsip: true })))
+          .concat(keep);
+        saveKat({ keluar, masuk: S.kat.masuk || [] });
+        // Anggaran
+        const b = {}; grid.querySelectorAll("[data-k]").forEach((i) => { const v = parseMoney(i.value); if (v && !removed.has(i.dataset.k)) b[i.dataset.k] = v; });
+        for (const c of own) if (!c.nama) delete b[c.id];
         write(data.save("settings", "anggaran", b)); S.budget = b; closeSheet(); render(); toast("Anggaran tersimpan");
       };
     });
   }
-
 
   /* ---------- baca dari screenshot ---------- */
   function openScan(o = {}) {
@@ -1089,7 +1173,7 @@ export function startApp({ data, scanner, env }) {
           // Saat batas gratis Gemini per menit tercapai (banyak screenshot sekaligus), tunggu lalu ulangi.
           for (let tryNo = 0; ; tryNo++) {
             try {
-              results[i] = await scanner.read(list[i], today);
+              results[i] = await scanner.read(list[i], today, { keluar: customCats("keluar").map(([id, nama]) => ({ id, nama })), masuk: customCats("masuk").map(([id, nama]) => ({ id, nama })) });
               const n = results[i].transaksi.filter((t) => Math.round(Math.abs(Number(t.jumlah) || 0))).length;
               status[i] = n ? `${n} transaksi` : "Tidak ada transaksi";
             } catch (e) {
@@ -1306,7 +1390,7 @@ export function startApp({ data, scanner, env }) {
     const rows = [["Tanggal", "Tipe", "Rekening", "Ke rekening / tabungan", "Untuk", "Kategori", "Catatan", "Jumlah", "Biaya admin"]].concat(
       filteredTx().sort((a, b) => (a.tanggal < b.tanggal ? -1 : 1)).map((t) => [
         t.tanggal, TIPE[t.tipe] || t.tipe, akunLabel(t.akun), t.keAkun ? akunLabel(t.keAkun) : t.tabungan ? tabLabel(t.tabungan) : "",
-        t.bisnis ? (D.bizMap[t.bisnis] || {}).nama || "Bisnis" : "Pribadi", CAT_NAME[t.kategori] || "", t.catatan || "",
+        t.bisnis ? (D.bizMap[t.bisnis] || {}).nama || "Bisnis" : "Pribadi", catName(t.kategori), t.catatan || "",
         t.tipe === "keluar" ? -t.jumlah : t.jumlah, +t.biaya || "",
       ]));
     const blob = new Blob(["﻿" + rows.map((r) => r.map(q).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" });

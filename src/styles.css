@@ -407,3 +407,13 @@ form{display:flex;flex-direction:column;gap:12px}
   .scan-grid input[data-f=ket]{grid-column:1 / -1}
   .scan-top{grid-template-columns:auto 100px minmax(0,1fr)}
 }
+
+/* ---------- kategori sendiri ---------- */
+.b-name{display:flex;align-items:center;gap:4px;min-width:0}
+.b-name input{flex:1;min-width:0;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 10px;font-size:16px;font-weight:600}
+.b-name input:focus{outline:none;border-color:var(--accent)}
+.b-name.new input{border-style:dashed;border-color:var(--accent)}
+.add-cat{border-style:dashed;color:var(--accent);margin-top:2px}
+.new-cat{display:flex;gap:8px;margin-top:-4px}
+.new-cat input{flex:1;min-width:0;border:1px solid var(--accent);background:var(--surface);border-radius:10px;padding:10px 12px;font-size:16px;min-height:44px}
+.new-cat input:focus{outline:none}

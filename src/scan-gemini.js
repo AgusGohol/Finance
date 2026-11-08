@@ -12,7 +12,7 @@ export const SCAN_CATS = {
   masuk: ["gaji", "sampingan", "bonus", "lainnya_in"],
 };
 
-const schema = Schema.object({
+const makeSchema = (extraIds) => Schema.object({
   properties: {
     sumber: Schema.string({ description: "Nama bank atau e-wallet asal screenshot, mis. BCA, BRI, Mandiri, GoPay, DANA. Kosongkan bila tidak jelas." }),
     transaksi: Schema.array({
@@ -22,7 +22,7 @@ const schema = Schema.object({
           arah: Schema.enumString({ enum: ["masuk", "keluar"] }),
           jumlah: Schema.number({ description: "Nominal dalam rupiah, bilangan bulat positif tanpa titik/koma." }),
           keterangan: Schema.string({ description: "Keterangan singkat: nama toko, penerima/pengirim, atau deskripsi." }),
-          kategori: Schema.enumString({ enum: [...SCAN_CATS.keluar, ...SCAN_CATS.masuk] }),
+          kategori: Schema.enumString({ enum: [...SCAN_CATS.keluar, ...SCAN_CATS.masuk, ...extraIds] }),
         },
         optionalProperties: ["tanggal"],
       }),
@@ -31,7 +31,9 @@ const schema = Schema.object({
   optionalProperties: ["sumber"],
 });
 
-function prompt(today) {
+function prompt(today, extra) {
+  const own = (t) => (extra && extra[t] ? extra[t] : []).map((c) => `${c.id} (${c.nama})`).join(", ");
+  const ownLines = [own("keluar") && `- kategori keluar buatan pengguna, utamakan bila cocok: ${own("keluar")}.`, own("masuk") && `- kategori masuk buatan pengguna, utamakan bila cocok: ${own("masuk")}.`].filter(Boolean).join("\n");
   return `Kamu membaca screenshot keuangan dari HP pengguna di Indonesia: mutasi rekening m-banking, riwayat e-wallet, struk belanja, atau bukti transfer.
 Tugas: ambil SETIAP transaksi yang terlihat dan kembalikan sebagai JSON sesuai skema.
 
@@ -45,7 +47,7 @@ Aturan:
 - Bukti transfer: satu transaksi; biaya admin yang tertulis terpisah jadi transaksi keluar sendiri berkategori "admin".
 - kategori keluar: makan (makan/minum/kafe/GoFood), transport (bensin, ojek, parkir, tol, tiket), belanja (supermarket, minimarket, marketplace), tagihan (listrik/PLN, air, internet, pulsa, paket data, cicilan, langganan), hiburan, kesehatan, pendidikan, keluarga (transfer ke keluarga/teman, sumbangan), admin (biaya admin/transfer/bulanan bank), lainnya.
 - kategori masuk: gaji, sampingan (penjualan, proyek, freelance), bonus (bonus, THR, cashback, bunga), lainnya_in.
-- keterangan maksimal 60 karakter, tanpa nomor rekening lengkap.
+- keterangan maksimal 60 karakter, tanpa nomor rekening lengkap.${ownLines ? "\n" + ownLines : ""}
 - Bila tidak ada transaksi yang terbaca, kembalikan transaksi kosong.`;
 }
 
@@ -66,10 +68,10 @@ export function createGeminiScanner(app) {
   let ai = null;
   const models = {};
   const noThink = new Set(); // model yang menolak pengaturan "berpikir singkat"
-  const model = (name) => {
+  const model = (name, extraIds) => {
     if (!ai) ai = getAI(app, { backend: new GoogleAIBackend() });
-    const key = name + (noThink.has(name) ? ":plain" : "");
-    const generationConfig = { responseMimeType: "application/json", responseSchema: schema, temperature: 0 };
+    const key = name + (noThink.has(name) ? ":plain" : "") + "|" + extraIds.join(",");
+    const generationConfig = { responseMimeType: "application/json", responseSchema: makeSchema(extraIds), temperature: 0 };
     // Membaca screenshot tidak butuh penalaran panjang; berpikir singkat jauh lebih cepat.
     if (!noThink.has(name)) generationConfig.thinkingConfig = { thinkingLevel: "LOW" };
     return (models[key] = models[key] || getGenerativeModel(ai, { model: name, generationConfig }, { timeout: TIMEOUT_MS + 5000 }));
@@ -80,12 +82,12 @@ export function createGeminiScanner(app) {
     return Promise.race([p, timer]).finally(() => clearTimeout(t));
   }
 
-  async function ask(parts) {
+  async function ask(parts, extraIds) {
     let lastErr;
     for (const name of MODELS) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const res = await withTimeout(model(name).generateContent(parts));
+          const res = await withTimeout(model(name, extraIds).generateContent(parts));
           return JSON.parse(res.response.text());
         } catch (e) {
           lastErr = e;
@@ -105,9 +107,11 @@ export function createGeminiScanner(app) {
 
   return {
     /** @returns {Promise<{sumber:string, transaksi:Array}>} */
-    async read(file, today) {
+    /** extra: kategori buatan pengguna { keluar: [{id, nama}], masuk: [...] } */
+    async read(file, today, extra) {
       const img = await toInline(file);
-      const out = await ask([prompt(today), img]);
+      const ids = [...((extra && extra.keluar) || []), ...((extra && extra.masuk) || [])].map((c) => c.id);
+      const out = await ask([prompt(today, extra), img], ids);
       return { sumber: String(out.sumber || ""), transaksi: Array.isArray(out.transaksi) ? out.transaksi : [] };
     },
     errorText(e) {

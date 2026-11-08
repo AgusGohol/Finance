@@ -7,7 +7,7 @@ Aplikasi keuangan pribadi yang semua bagiannya saling terhubung:
 - **Tabungan** – pos tabungan dengan target dan progres. Setor dari rekening mana saja: saldo rekening berkurang, tabungan bertambah.
 - **Rencana jangka panjang** – target dana dengan tenggat (mis. DP rumah 2030). Terhubung ke satu pos tabungan; aplikasi menghitung berapa yang perlu disisihkan per bulan dan apakah bulan ini sudah cukup.
 - **Bisnis** – pemasukan dan biaya usaha sendiri dicatat terpisah, lengkap dengan laba, margin, dan grafik 6 bulan.
-- **Anggaran pribadi** – batas belanja per kategori per bulan (pengeluaran bisnis tidak dihitung).
+- **Anggaran pribadi** – batas belanja per kategori per bulan (pengeluaran bisnis tidak dihitung). Bisa menambah kategori dengan nama sendiri lewat **Ubah anggaran → + Tambah kategori sendiri**, atau langsung dari pilihan **+ Kategori baru…** saat mencatat transaksi.
 - **Baca dari screenshot** – pilih screenshot mutasi rekening, riwayat e-wallet, struk, atau bukti transfer; Gemini membaca daftar transaksinya, kamu periksa dan koreksi, lalu semuanya tersimpan sekaligus ke rekening yang dipilih. Kemungkinan duplikat ditandai dan tidak dicentang.
 
 Tersedia sebagai APK Android dan versi web (komputer & iPhone), dengan login email + password. Data sama di semua perangkat dan tetap bisa dicatat saat offline.
@@ -117,6 +117,7 @@ Data tersimpan di Firestore pada `users/{id-akun}/`:
 | `rencana` | rencana: `nama`, `target`, `tenggat` (YYYY-MM), `tabungan` |
 | `bisnis` | usaha: `nama`, `deskripsi` |
 | `settings/anggaran` | batas per kategori |
+| `settings/kategori` | kategori buatan sendiri: `keluar` / `masuk` berisi `{id, nama, arsip}` |
 
 Saldo rekening = saldo awal + semua transaksi sejak tanggal saldo awal itu. Transaksi yang lebih lama tetap tampil di riwayat tanpa mengubah saldo.
 
