@@ -373,7 +373,8 @@ form{display:flex;flex-direction:column;gap:12px}
 .reading{display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 0;text-align:center}
 .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--accent-soft);border-top-color:var(--accent)}
 @media (prefers-reduced-motion:no-preference){ .spinner{animation:spin .8s linear infinite} @keyframes spin{to{transform:rotate(360deg)}} }
-.read-list{list-style:none;margin:0;padding:0;width:100%;max-width:420px;display:flex;flex-direction:column;gap:4px}
+.read-list{list-style:none;margin:0;padding:0;width:100%;max-width:460px;max-height:42vh;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.read-list li span:last-child{flex:none;text-align:right}
 .read-list li{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;padding:6px 10px;background:var(--sunk);border-radius:8px}
 .read-list li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .scan-head{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}

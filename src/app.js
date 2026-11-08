@@ -1035,8 +1035,8 @@ export function startApp({ data, scanner, env }) {
     function drawPick() {
       const h = `<label class="drop" for="scFile">
           ${icon(SCAN_ICON, "ic big")}
-          <b>Pilih screenshot</b>
-          <span class="muted small">Mutasi rekening, riwayat e-wallet, struk belanja, atau bukti transfer. Bisa beberapa sekaligus.${innerWidth > 860 ? " Bisa juga tempel dengan Ctrl+V." : ""}</span>
+          <b>Pilih satu atau banyak screenshot</b>
+          <span class="muted small">Mutasi rekening, riwayat e-wallet, struk belanja, atau bukti transfer. Tahan lalu centang beberapa gambar di galeri untuk memasukkan sekaligus.${innerWidth > 860 ? " Bisa juga tempel dengan Ctrl+V." : ""}</span>
           <input id="scFile" type="file" accept="image/*" multiple>
         </label>
         ${SC.items.length ? `<button class="btn block" type="button" id="scBack">Kembali ke ${SC.items.length} transaksi terbaca</button>` : ""}
@@ -1067,9 +1067,10 @@ export function startApp({ data, scanner, env }) {
         if (SC.token !== token || cancelled) return;
         const body = $("sheetBody"); if (!body) return;
         const now = Date.now();
-        body.innerHTML = `<div class="reading"><div class="spinner" aria-hidden="true"></div><b>Membaca screenshot… <span class="num muted">${Math.floor((now - t0) / 1000)} dtk</span></b>
+        const done = status.filter((x) => x !== "Menunggu" && x !== "Membaca" && !String(x).startsWith("Antre")).length;
+        body.innerHTML = `<div class="reading"><div class="spinner" aria-hidden="true"></div><b>Membaca screenshot… <span class="num muted">${list.length > 1 ? `${done} dari ${list.length} · ` : ""}${Math.floor((now - t0) / 1000)} dtk</span></b>
           <ul class="read-list">${list.map((f, i) => `<li><span>${esc(f.name || "Gambar " + (i + 1))}</span><span class="muted">${status[i] === "Membaca" ? `Membaca… ${Math.floor((now - started[i]) / 1000)} dtk` : status[i]}</span></li>`).join("")}</ul>
-          <p class="muted small">Biasanya 5–20 detik per gambar. Bila lebih dari 45 detik, aplikasi mencoba lagi dengan model lain.</p>
+          <p class="muted small">Biasanya 5–20 detik per gambar. Untuk banyak screenshot, aplikasi otomatis antre bila batas per menit Gemini tercapai.</p>
           <button class="btn" type="button" id="scCancel">Batal</button></div>`;
         $("scCancel").onclick = () => {
           cancelled = true; clearInterval(tick);
@@ -1085,14 +1086,28 @@ export function startApp({ data, scanner, env }) {
         while (next < list.length && !stopAll && !cancelled && SC.token === token) {
           const i = next++;
           status[i] = "Membaca"; started[i] = Date.now(); paint();
-          try {
-            results[i] = await scanner.read(list[i], today);
-            const n = results[i].transaksi.filter((t) => Math.round(Math.abs(Number(t.jumlah) || 0))).length;
-            status[i] = n ? `${n} transaksi` : "Tidak ada transaksi";
-          } catch (e) {
-            status[i] = "Gagal";
-            errs.push(scanner.errorText(e));
-            if (e && (e.code === "api-not-enabled" || (e.customErrorData && e.customErrorData.status === 403))) stopAll = true;
+          // Saat batas gratis Gemini per menit tercapai (banyak screenshot sekaligus), tunggu lalu ulangi.
+          for (let tryNo = 0; ; tryNo++) {
+            try {
+              results[i] = await scanner.read(list[i], today);
+              const n = results[i].transaksi.filter((t) => Math.round(Math.abs(Number(t.jumlah) || 0))).length;
+              status[i] = n ? `${n} transaksi` : "Tidak ada transaksi";
+            } catch (e) {
+              const limited = e && e.customErrorData && e.customErrorData.status === 429;
+              if (limited && tryNo < 4 && !cancelled && SC.token === token) {
+                const wait = 20 + tryNo * 15, until = Date.now() + wait * 1000;
+                while (Date.now() < until && !cancelled && SC.token === token) {
+                  status[i] = `Antre ${Math.ceil((until - Date.now()) / 1000)} dtk`;
+                  await new Promise((r) => setTimeout(r, 1000));
+                }
+                status[i] = "Membaca"; started[i] = Date.now();
+                continue;
+              }
+              status[i] = "Gagal";
+              errs.push(scanner.errorText(e));
+              if (e && (e.code === "api-not-enabled" || (e.customErrorData && e.customErrorData.status === 403))) stopAll = true;
+            }
+            break;
           }
           paint();
         }

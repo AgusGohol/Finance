@@ -1,11 +1,13 @@
 // Pembaca screenshot tiruan untuk pengujian tampilan (tanpa Gemini).
-export function createMockScanner({ fail = false, slow = false } = {}) {
+export function createMockScanner({ fail = false, slow = false, limit = 0 } = {}) {
+  let calls = 0;
   const m = new Date().toISOString().slice(0, 7);
   const d = (n) => m + "-" + String(n).padStart(2, "0");
   return {
     async read(file, today) {
       await new Promise((r) => setTimeout(r, slow ? 2600 : 300));
       if (fail) { const e = new Error("x"); e.code = "api-not-enabled"; throw e; }
+      if (calls++ < limit) { const e = new Error("quota"); e.code = "fetch-error"; e.customErrorData = { status: 429 }; throw e; }
       return {
         sumber: "BCA",
         transaksi: [
